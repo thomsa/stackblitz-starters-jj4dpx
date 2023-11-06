@@ -37,8 +37,18 @@ app.get('/', (req, res) => {
 app.get('/api/search', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         yield connectDB();
-        const result = yield db.query("SELECT * FROM users WHERE first_name LIKE 'j%'", [req.query.value]);
-        res.status(200).header({ 'x-cache': 'MISS' }).json({ data: result.rows });
+        let cacheValue = 'HIT';
+        let cachedValueFromReids = redisClient.get(req.query.value);
+        res.status(200).header({ 'x-cache': cacheValue }).json({ data: cachedValueFromReids });
+        if (!cachedValue) {
+            const result = yield db.query("SELECT * FROM users WHERE first_name LIKE 'j%'", [req.query.value]);
+            redisClient.set(req.query.value, JSON.stringify(result.rows), (data) => {
+                console.log('redis ', data);
+                cachedValueFromReids = data;
+                cacheValue = 'MISS';
+            });
+        }
+        res.status(200).header({ 'x-cache': cacheValue }).json({ data: cachedValueFromReids });
     }
     catch (e) {
         res.status(500).json({ error: 'Internal server error!' });
